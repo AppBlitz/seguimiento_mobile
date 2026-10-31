@@ -22,11 +22,5 @@ data class PokemonDetail(
     val stats: List<PokemonStat>,
     val description: String,
     val habitat: String,
-    val generation: String,
-    val isLegendary: Boolean
-)
-
-data class FilterOption(
-    val apiName: String,
-    val displayName: String
+    val generation: String
 )

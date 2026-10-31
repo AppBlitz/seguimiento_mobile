@@ -13,7 +13,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 class NetworkMonitor(private val context: Context) {
     val isOnline: Flow<Boolean> = callbackFlow {
         val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+
+        if (connectivityManager == null) {
+            trySend(false)
+            close()
+            return@callbackFlow
+        }
 
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
@@ -41,18 +47,24 @@ class NetworkMonitor(private val context: Context) {
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
 
-        connectivityManager.registerNetworkCallback(request, callback)
+        runCatching {
+            connectivityManager.registerNetworkCallback(request, callback)
+        }
         trySend(checkCurrentConnectivity(connectivityManager))
 
         awaitClose {
-            connectivityManager.unregisterNetworkCallback(callback)
+            runCatching {
+                connectivityManager.unregisterNetworkCallback(callback)
+            }
         }
     }.distinctUntilChanged()
 
     private fun checkCurrentConnectivity(connectivityManager: ConnectivityManager): Boolean {
-        val activeNetwork = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return runCatching {
+            val activeNetwork = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }.getOrDefault(true)
     }
 }

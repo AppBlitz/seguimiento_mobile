@@ -32,26 +32,26 @@ class PokemonListViewModel(
     private val pageSize = 20
 
     init {
-        loadFirstPage()
+        loadInitialPage()
     }
 
-    fun loadFirstPage() {
+    fun loadInitialPage() {
         currentOffset = 0
         _uiState.update {
             it.copy(
-                isInitialLoading = true,
+                isLoadingInitial = true,
                 errorMessage = null,
                 endReached = false
             )
         }
         viewModelScope.launch {
-            repository.getPokemonPage(limit = pageSize, offset = currentOffset)
+            repository.getPokemonPage(limit = pageSize, offset = 0)
                 .onSuccess { items ->
-                    currentOffset += items.size
+                    currentOffset = pageSize
                     _uiState.update {
                         it.copy(
                             pokemonList = items,
-                            isInitialLoading = false,
+                            isLoadingInitial = false,
                             endReached = items.isEmpty()
                         )
                     }
@@ -59,8 +59,8 @@ class PokemonListViewModel(
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(
-                            isInitialLoading = false,
-                            errorMessage = "Error al conectar con PokeAPI: ${error.localizedMessage ?: "Verifica tu conexión"}"
+                            isLoadingInitial = false,
+                            errorMessage = "Error al cargar Pokémon: ${error.localizedMessage}"
                         )
                     }
                 }
@@ -69,19 +69,19 @@ class PokemonListViewModel(
 
     fun loadNextPage() {
         val state = _uiState.value
-        if (state.isInitialLoading || state.isPaginating || state.endReached || state.isFilterActive) {
+        if (state.isLoadingInitial || state.isLoadingMore || state.endReached || state.isFilterActive) {
             return
         }
 
-        _uiState.update { it.copy(isPaginating = true, errorMessage = null) }
+        _uiState.update { it.copy(isLoadingMore = true, errorMessage = null) }
         viewModelScope.launch {
             repository.getPokemonPage(limit = pageSize, offset = currentOffset)
                 .onSuccess { newItems ->
-                    currentOffset += newItems.size
+                    currentOffset += pageSize
                     _uiState.update { current ->
                         current.copy(
                             pokemonList = (current.pokemonList + newItems).distinctBy { it.id },
-                            isPaginating = false,
+                            isLoadingMore = false,
                             endReached = newItems.isEmpty()
                         )
                     }
@@ -89,8 +89,8 @@ class PokemonListViewModel(
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(
-                            isPaginating = false,
-                            errorMessage = "No se pudieron cargar más Pokémon: ${error.localizedMessage}"
+                            isLoadingMore = false,
+                            errorMessage = "No se pudieron cargar más elementos: ${error.localizedMessage}"
                         )
                     }
                 }
@@ -102,25 +102,23 @@ class PokemonListViewModel(
     }
 
     fun onTypeSelected(type: String?) {
-        val updatedType = if (_uiState.value.selectedType == type) null else type
-        _uiState.update { it.copy(selectedType = updatedType) }
+        _uiState.update { it.copy(selectedType = type) }
         applyFilters()
     }
 
     fun onHabitatSelected(habitat: String?) {
-        val updatedHabitat = if (_uiState.value.selectedHabitat == habitat) null else habitat
-        _uiState.update { it.copy(selectedHabitat = updatedHabitat) }
+        _uiState.update { it.copy(selectedHabitat = habitat) }
         applyFilters()
     }
 
     fun applyFilters() {
         val state = _uiState.value
         if (!state.isFilterActive) {
-            loadFirstPage()
+            loadInitialPage()
             return
         }
 
-        _uiState.update { it.copy(isInitialLoading = true, errorMessage = null) }
+        _uiState.update { it.copy(isLoadingInitial = true, errorMessage = null) }
         viewModelScope.launch {
             repository.filterPokemon(
                 query = state.searchQuery,
@@ -130,14 +128,14 @@ class PokemonListViewModel(
                 _uiState.update {
                     it.copy(
                         pokemonList = filtered,
-                        isInitialLoading = false
+                        isLoadingInitial = false
                     )
                 }
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
-                        isInitialLoading = false,
-                        errorMessage = "Error al filtrar en la API: ${error.localizedMessage}"
+                        isLoadingInitial = false,
+                        errorMessage = "Error al filtrar: ${error.localizedMessage}"
                     )
                 }
             }
@@ -149,11 +147,10 @@ class PokemonListViewModel(
             it.copy(
                 searchQuery = "",
                 selectedType = null,
-                selectedHabitat = null,
-                errorMessage = null
+                selectedHabitat = null
             )
         }
-        loadFirstPage()
+        loadInitialPage()
     }
 
     companion object {

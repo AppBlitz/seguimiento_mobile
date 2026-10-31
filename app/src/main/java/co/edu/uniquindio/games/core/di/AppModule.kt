@@ -19,7 +19,9 @@ object AppModule {
         private set
 
     fun init(context: Context) {
-        networkMonitor = NetworkMonitor(context.applicationContext)
+        if (!::networkMonitor.isInitialized) {
+            networkMonitor = NetworkMonitor(context.applicationContext)
+        }
     }
 
     private val okHttpClient: OkHttpClient by lazy {
