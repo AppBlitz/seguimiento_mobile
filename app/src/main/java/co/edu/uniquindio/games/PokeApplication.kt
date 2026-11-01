@@ -1,11 +1,7 @@
 package co.edu.uniquindio.games
 
 import android.app.Application
-import co.edu.uniquindio.games.core.di.AppModule
+import dagger.hilt.android.HiltAndroidApp
 
-class PokeApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        AppModule.init(this)
-    }
-}
+@HiltAndroidApp
+class PokeApplication : Application()

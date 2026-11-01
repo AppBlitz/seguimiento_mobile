@@ -30,6 +30,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -57,6 +60,7 @@ fun PokemonListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -72,7 +76,23 @@ fun PokemonListScreen(
         }
     }
 
+    // Si ya hay elementos en pantalla, el error se informa con un Snackbar en lugar de ocultar la lista
+    LaunchedEffect(uiState.errorMessage) {
+        val message = uiState.errorMessage
+        if (message != null && uiState.pokemonList.isNotEmpty()) {
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = "Reintentar"
+            )
+            viewModel.onErrorShown()
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.retry()
+            }
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 TopAppBar(title = { Text("PokéAPI Explorer") })
@@ -156,7 +176,7 @@ fun PokemonListScreen(
                     ) {
                         Text(text = uiState.errorMessage ?: "Error desconocido")
                         Spacer(modifier = Modifier.height(12.dp))
-                        Button(onClick = viewModel::applyFilters) {
+                        Button(onClick = viewModel::retry) {
                             Text("Reintentar")
                         }
                     }

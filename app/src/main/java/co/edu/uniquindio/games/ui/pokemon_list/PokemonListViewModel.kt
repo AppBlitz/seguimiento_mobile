@@ -1,11 +1,10 @@
 package co.edu.uniquindio.games.ui.pokemon_list
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import co.edu.uniquindio.games.core.di.AppModule
 import co.edu.uniquindio.games.core.util.NetworkMonitor
 import co.edu.uniquindio.games.domain.repository.PokemonRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,8 +12,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class PokemonListViewModel(
+@HiltViewModel
+class PokemonListViewModel @Inject constructor(
     private val repository: PokemonRepository,
     networkMonitor: NetworkMonitor
 ) : ViewModel() {
@@ -30,6 +31,9 @@ class PokemonListViewModel(
 
     private var currentOffset = 0
     private val pageSize = 20
+
+    // Última operación que falló, para repetirla desde el botón o el Snackbar "Reintentar"
+    private var lastFailedAction: () -> Unit = ::applyFilters
 
     init {
         loadInitialPage()
@@ -57,6 +61,7 @@ class PokemonListViewModel(
                     }
                 }
                 .onFailure { error ->
+                    lastFailedAction = ::applyFilters
                     _uiState.update {
                         it.copy(
                             isLoadingInitial = false,
@@ -87,6 +92,7 @@ class PokemonListViewModel(
                     }
                 }
                 .onFailure { error ->
+                    lastFailedAction = ::loadNextPage
                     _uiState.update {
                         it.copy(
                             isLoadingMore = false,
@@ -132,6 +138,7 @@ class PokemonListViewModel(
                     )
                 }
             }.onFailure { error ->
+                lastFailedAction = ::applyFilters
                 _uiState.update {
                     it.copy(
                         isLoadingInitial = false,
@@ -140,6 +147,14 @@ class PokemonListViewModel(
                 }
             }
         }
+    }
+
+    fun retry() {
+        lastFailedAction()
+    }
+
+    fun onErrorShown() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 
     fun clearFilters() {
@@ -153,15 +168,4 @@ class PokemonListViewModel(
         loadInitialPage()
     }
 
-    companion object {
-        val Factory: ViewModelProvider.Factory = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return PokemonListViewModel(
-                    repository = AppModule.pokemonRepository,
-                    networkMonitor = AppModule.networkMonitor
-                ) as T
-            }
-        }
-    }
 }

@@ -1,11 +1,11 @@
 package co.edu.uniquindio.games.ui.pokemon_detail
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import co.edu.uniquindio.games.core.di.AppModule
 import co.edu.uniquindio.games.core.util.NetworkMonitor
 import co.edu.uniquindio.games.domain.repository.PokemonRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,12 +13,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class PokemonDetailViewModel(
-    private val pokemonId: Int,
+@HiltViewModel
+class PokemonDetailViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val repository: PokemonRepository,
     networkMonitor: NetworkMonitor
 ) : ViewModel() {
+
+    private val pokemonId: Int = checkNotNull(savedStateHandle["pokemonId"])
 
     private val _uiState = MutableStateFlow(PokemonDetailUiState())
     val uiState: StateFlow<PokemonDetailUiState> = _uiState.asStateFlow()
@@ -53,17 +57,4 @@ class PokemonDetailViewModel(
         }
     }
 
-    companion object {
-        fun provideFactory(pokemonId: Int): ViewModelProvider.Factory =
-            object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return PokemonDetailViewModel(
-                        pokemonId = pokemonId,
-                        repository = AppModule.pokemonRepository,
-                        networkMonitor = AppModule.networkMonitor
-                    ) as T
-                }
-            }
-    }
 }
